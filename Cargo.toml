@@ -6,3 +6,7 @@ edition = "2018"
 
 [dependencies]
 pulldown-cmark = "0.7.2"
+
+[dependencies.async-std]
+version = "1.6"
+features = ["attributes"]

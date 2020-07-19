@@ -1,4 +1,4 @@
-# FFUU
+<h1 align="center">&nbsp;<br><i>FFUU</i><br>&nbsp;</h1>
 
 The static site generator for people who hate static site generators.
 

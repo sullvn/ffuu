@@ -7,6 +7,7 @@ use pulldown_cmark::{Parser, html};
 async fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
     let input_path = args.get(1).unwrap();
+    let output_path = args.get(2).unwrap();
 
     let input_bytes = read(input_path).await?;
     let input_text: &str = str::from_utf8(&input_bytes).unwrap();
@@ -15,7 +16,7 @@ async fn main() -> std::io::Result<()> {
     let mut html_output = String::new();
 
     html::push_html(&mut html_output, md_parser);
-    println!("{}", html_output);
+    write(output_path, html_output).await?;
 
     Ok(())
 }

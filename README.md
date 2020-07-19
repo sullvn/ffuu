@@ -22,7 +22,7 @@ $ ffuu ./posts ./dist
 $ open ./dist/first-post.html
 ```
 
-```md
+```markdown
 <!-- ./posts/first-post.md -->
 
 <head>

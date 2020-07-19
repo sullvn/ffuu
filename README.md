@@ -18,11 +18,13 @@ Things FFUU doesn't have:
 ## Example
 
 ```sh
-$ ffuu ./posts
-$ open ./dist/index.html
+$ ffuu ./posts ./dist
+$ open ./dist/first-post.html
 ```
 
 ```md
+<!-- ./posts/first-post.md -->
+
 <head>
   <title>Blog * My First Post</title>
   <link href="./first-post.css" rel="stylesheet">

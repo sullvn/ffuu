@@ -6,6 +6,8 @@ edition = "2018"
 
 [dependencies]
 pulldown-cmark = "0.7.2"
+anyhow = "1.0"
+futures = "0.3"
 
 [dependencies.async-std]
 version = "1.6"

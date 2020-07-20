@@ -2,9 +2,10 @@ use std::env;
 use std::str;
 use anyhow::anyhow;
 use async_std::prelude::StreamExt;
-use async_std::fs::{read, write, read_dir};
+use async_std::fs::{read, write, read_dir, remove_dir_all, create_dir_all};
 use async_std::path::Path;
 use async_std::task::spawn;
+use async_std::io;
 use futures::future;
 use pulldown_cmark::{Parser, html};
 
@@ -13,6 +14,12 @@ async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
     let input_path = args.get(1).ok_or(anyhow!("Missing input directory path"))?;
     let output_path = args.get(2).ok_or(anyhow!("Missing output directory path"))?;
+
+    match remove_dir_all(output_path).await {
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
+        r => r,
+    }?;
+    create_dir_all(output_path).await?;
 
     let mut tasks = Vec::new();
     let mut entries = read_dir(input_path).await?;

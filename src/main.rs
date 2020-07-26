@@ -1,5 +1,8 @@
 use std::env;
 use std::str;
+use std::ops::Range;
+use std::io::Write;
+use std::process::{Command, Stdio};
 use anyhow::anyhow;
 use async_std::prelude::StreamExt;
 use async_std::fs::{read, write, read_dir, remove_dir_all, create_dir_all};
@@ -44,42 +47,184 @@ async fn write_html<P: AsRef<Path>, Q: AsRef<Path>>(input_path: P, output_dir: Q
     let input_bytes = read(input_path).await?;
     let input_text: &str = str::from_utf8(&input_bytes)?;
 
-    do_parse(input_text);
 
     let mut html_output = String::new();
     {
-        let md_parser = Parser::new(input_text);
-        html::push_html(&mut html_output, md_parser);
+        let (mut pieces, embed_requests) = do_parse(input_text);
+        let embed_results: Vec<(anyhow::Result<String>, EmbedRequest)> = embed_requests.into_iter()
+        .map(|er| (do_embed_request(&er), er))
+        .collect();
+
+        for (piece, er) in &embed_results {
+            pieces[er.piece_index] = embed_result_piece(piece);
+        }
+
+        let embarkdown = EmbarkdownParser::new(pieces);
+        html::push_html(&mut html_output, embarkdown);
     }
 
+    // TODO: Get rid of buffering here
     write(output_path, html_output).await?;
 
     Ok(())
 }
 
-fn do_parse(text: &str) {
-    let mut md_parser = Parser::new(text);
-    let mut depth: isize = 0;
-    let mut curr_tag: Option<&str> = None;
+fn do_embed_request(request: &EmbedRequest) -> anyhow::Result<String> {
+    let source = exec_embed(request)?;
+    let text = String::from_utf8(source)?;
 
-    while let Some(event) = md_parser.next() {
-        if let Event::Html(CowStr::Borrowed(tag)) = event {
-            if let Some(HtmlTag { name, direction }) = parse_tag(&tag) {
-                match (depth, &direction, curr_tag) {
-                    (0,  TagDirection::Open, _) => {
-                        curr_tag = Some(name);
-                    },
-                    (1, TagDirection::Close, Some(curr_tag_name)) => {
-                        println!("{}", curr_tag_name);
-                        curr_tag = None;
-                    },
-                    _ => {},
-                };
+    Ok(text)
+}
 
-                depth += direction.depth_change();
+fn embed_result_piece<'a>(result: &'a anyhow::Result<String>) -> Piece<'a> {
+    match result {
+        Ok(embed_text) => Piece::EmbedResult(Parser::new(embed_text)),
+        Err(_) => Piece::EmbedError,
+    }
+}
+
+#[derive(Debug)]
+enum EmbedParsing<'a> {
+    None,
+    Start {
+        command: &'a str,
+    },
+    Partial {
+        command: &'a str,
+        range: Range<usize>,
+    },
+}
+
+#[derive(Debug)]
+struct EmbedRequest<'a> {
+    command: &'a str,
+    input: &'a str,
+    piece_index: usize,
+}
+
+enum Piece<'a> {
+    Markdown(Event<'a>),
+    EmbedPending,
+    EmbedResult(Parser<'a>),
+    EmbedError,
+}
+
+struct EmbarkdownParser<'a> {
+    pieces: std::vec::IntoIter<Piece<'a>>,
+    embed_result_parser: Option<Parser<'a>>,
+}
+
+impl<'a> EmbarkdownParser<'a> {
+    fn new(pieces: Vec<Piece<'a>>) -> EmbarkdownParser<'a>  {
+        EmbarkdownParser {
+            pieces: pieces.into_iter(),
+            embed_result_parser: None,
+        }
+    }
+
+    fn next_embed_result(&mut self) -> Option<Event<'a>> {
+        match &mut self.embed_result_parser {
+            Some(parser) => parser.next(),
+            None => None,
+        }
+    }
+}
+
+impl<'a> Iterator for EmbarkdownParser<'a> {
+    type Item = Event<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(er) = self.next_embed_result() {
+            return Some(er);
+        }
+
+        let p = self.pieces.next()?;
+        match p {
+            Piece::Markdown(m) => {
+                Some(m)
+            }
+            Piece::EmbedResult(parser) => {
+                self.embed_result_parser = Some(parser);
+                self.next()
+            }
+            Piece::EmbedPending | Piece::EmbedError => {
+                panic!("Parsing error")
             }
         }
     }
+}
+
+fn exec_embed(request: &EmbedRequest) -> anyhow::Result<Vec<u8>> {
+    let EmbedRequest { command, input, .. } = request;
+    let mut child = Command::new(command)
+      .stdin(Stdio::piped())
+      .stdout(Stdio::piped())
+      .spawn()?;
+
+    child.stdin
+        .as_mut()
+        .ok_or(anyhow!("Can't borrow stdin as mutable"))?
+        .write_all(input.as_bytes())?;
+    let output = child.wait_with_output()?;
+
+    Ok(output.stdout)
+}
+
+fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
+    let mut depth: isize = 0;
+    let mut embed_request = EmbedParsing::None;
+    let mut pieces: Vec<Piece> = Vec::new();
+    let mut embed_requests: Vec<EmbedRequest> = Vec::new();
+
+    let mut md_offset_events = Parser::new(text).into_offset_iter();
+    while let Some((event, range)) = md_offset_events.next() {
+        let html_tag = if let Event::Html(CowStr::Borrowed(tag)) = event {
+            parse_tag(&tag)
+        } else {
+            None
+        };
+
+        match (depth, &html_tag, &mut embed_request) {
+            //
+            // Starting an embed
+            //
+            (0, Some(HtmlTag { name, direction: TagDirection::Open }), EmbedParsing::None) => {
+                embed_request = EmbedParsing::Start { command: name };
+            },
+            //
+            // Ending an embed
+            //
+            (1, Some(HtmlTag { direction: TagDirection::Close, .. }), EmbedParsing::Partial {
+                command,
+                range: Range { start, end }
+            }) => {
+                embed_requests.push(EmbedRequest {
+                    command,
+                    input: &text[*start..*end],
+                    piece_index: pieces.len(),
+                });
+                pieces.push(Piece::EmbedPending);
+                embed_request = EmbedParsing::None;
+            },
+            (_, _, EmbedParsing::Start { command }) => {
+                embed_request = EmbedParsing::Partial { command, range };
+            },
+            (_, _, EmbedParsing::Partial { range: req_range, .. }) => {
+                req_range.end = range.end;
+            },
+            _ => {},
+        };
+
+        if html_tag.is_none() && depth < 1 {
+            pieces.push(Piece::Markdown(event));
+        }
+
+        if let Some(HtmlTag { direction , .. }) = html_tag {
+            depth += direction.depth_change();
+        }
+    }
+
+    (pieces, embed_requests)
 }
 
 #[derive(Eq, PartialEq, Debug)]

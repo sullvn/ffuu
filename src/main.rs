@@ -1,22 +1,24 @@
-use std::env;
-use std::str;
-use std::ops::Range;
-use std::io::Write;
-use std::process::{Command, Stdio};
 use anyhow::anyhow;
-use async_std::prelude::StreamExt;
-use async_std::fs::{read, write, read_dir, remove_dir_all, create_dir_all};
-use async_std::path::Path;
-use async_std::task::spawn;
+use async_std::fs::{create_dir_all, read, read_dir, remove_dir_all, write};
 use async_std::io;
+use async_std::path::Path;
+use async_std::prelude::StreamExt;
+use async_std::task::spawn;
 use futures::future;
-use pulldown_cmark::{Parser, html, Event, CowStr};
+use pulldown_cmark::{html, CowStr, Event, Parser};
+use std::env;
+use std::io::Write;
+use std::ops::Range;
+use std::process::{Command, Stdio};
+use std::str;
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
     let input_path = args.get(1).ok_or(anyhow!("Missing input directory path"))?;
-    let output_path = args.get(2).ok_or(anyhow!("Missing output directory path"))?;
+    let output_path = args
+        .get(2)
+        .ok_or(anyhow!("Missing output directory path"))?;
 
     match remove_dir_all(output_path).await {
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),
@@ -31,8 +33,8 @@ async fn main() -> anyhow::Result<()> {
             Ok(entry) => {
                 let handle = spawn(write_html(entry.path(), output_path.clone()));
                 tasks.push(handle);
-            },
-            _ => {},
+            }
+            _ => {}
         };
     }
 
@@ -40,20 +42,29 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn write_html<P: AsRef<Path>, Q: AsRef<Path>>(input_path: P, output_dir: Q) -> anyhow::Result<()> {
-    let input_file_name = input_path.as_ref().file_name().ok_or(anyhow!("No filename: {:?}", input_path.as_ref()))?;
-    let output_path = output_dir.as_ref().join(input_file_name).with_extension("html");
+async fn write_html<P: AsRef<Path>, Q: AsRef<Path>>(
+    input_path: P,
+    output_dir: Q,
+) -> anyhow::Result<()> {
+    let input_file_name = input_path
+        .as_ref()
+        .file_name()
+        .ok_or(anyhow!("No filename: {:?}", input_path.as_ref()))?;
+    let output_path = output_dir
+        .as_ref()
+        .join(input_file_name)
+        .with_extension("html");
 
     let input_bytes = read(input_path).await?;
     let input_text: &str = str::from_utf8(&input_bytes)?;
 
-
     let mut html_output = String::new();
     {
         let (mut pieces, embed_requests) = do_parse(input_text);
-        let embed_results: Vec<(anyhow::Result<String>, EmbedRequest)> = embed_requests.into_iter()
-        .map(|er| (do_embed_request(&er), er))
-        .collect();
+        let embed_results: Vec<(anyhow::Result<String>, EmbedRequest)> = embed_requests
+            .into_iter()
+            .map(|er| (do_embed_request(&er), er))
+            .collect();
 
         for (piece, er) in &embed_results {
             pieces[er.piece_index] = embed_result_piece(piece);
@@ -115,7 +126,7 @@ struct EmbarkdownParser<'a> {
 }
 
 impl<'a> EmbarkdownParser<'a> {
-    fn new(pieces: Vec<Piece<'a>>) -> EmbarkdownParser<'a>  {
+    fn new(pieces: Vec<Piece<'a>>) -> EmbarkdownParser<'a> {
         EmbarkdownParser {
             pieces: pieces.into_iter(),
             embed_result_parser: None,
@@ -140,16 +151,12 @@ impl<'a> Iterator for EmbarkdownParser<'a> {
 
         let p = self.pieces.next()?;
         match p {
-            Piece::Markdown(m) => {
-                Some(m)
-            }
+            Piece::Markdown(m) => Some(m),
             Piece::EmbedResult(parser) => {
                 self.embed_result_parser = Some(parser);
                 self.next()
             }
-            Piece::EmbedPending | Piece::EmbedError => {
-                panic!("Parsing error")
-            }
+            Piece::EmbedPending | Piece::EmbedError => panic!("Parsing error"),
         }
     }
 }
@@ -157,11 +164,12 @@ impl<'a> Iterator for EmbarkdownParser<'a> {
 fn exec_embed(request: &EmbedRequest) -> anyhow::Result<Vec<u8>> {
     let EmbedRequest { command, input, .. } = request;
     let mut child = Command::new(command)
-      .stdin(Stdio::piped())
-      .stdout(Stdio::piped())
-      .spawn()?;
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()?;
 
-    child.stdin
+    child
+        .stdin
         .as_mut()
         .ok_or(anyhow!("Can't borrow stdin as mutable"))?
         .write_all(input.as_bytes())?;
@@ -188,16 +196,30 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
             //
             // Starting an embed
             //
-            (0, Some(HtmlTag { name, direction: TagDirection::Open }), EmbedParsing::None) => {
+            (
+                0,
+                Some(HtmlTag {
+                    name,
+                    direction: TagDirection::Open,
+                }),
+                EmbedParsing::None,
+            ) => {
                 embed_request = EmbedParsing::Start { command: name };
-            },
+            }
             //
             // Ending an embed
             //
-            (1, Some(HtmlTag { direction: TagDirection::Close, .. }), EmbedParsing::Partial {
-                command,
-                range: Range { start, end }
-            }) => {
+            (
+                1,
+                Some(HtmlTag {
+                    direction: TagDirection::Close,
+                    ..
+                }),
+                EmbedParsing::Partial {
+                    command,
+                    range: Range { start, end },
+                },
+            ) => {
                 embed_requests.push(EmbedRequest {
                     command,
                     input: &text[*start..*end],
@@ -205,21 +227,27 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
                 });
                 pieces.push(Piece::EmbedPending);
                 embed_request = EmbedParsing::None;
-            },
+            }
             (_, _, EmbedParsing::Start { command }) => {
                 embed_request = EmbedParsing::Partial { command, range };
-            },
-            (_, _, EmbedParsing::Partial { range: req_range, .. }) => {
+            }
+            (
+                _,
+                _,
+                EmbedParsing::Partial {
+                    range: req_range, ..
+                },
+            ) => {
                 req_range.end = range.end;
-            },
-            _ => {},
+            }
+            _ => {}
         };
 
         if html_tag.is_none() && depth < 1 {
             pieces.push(Piece::Markdown(event));
         }
 
-        if let Some(HtmlTag { direction , .. }) = html_tag {
+        if let Some(HtmlTag { direction, .. }) = html_tag {
             depth += direction.depth_change();
         }
     }
@@ -247,11 +275,9 @@ struct HtmlTag<'a> {
     direction: TagDirection,
 }
 
-
 fn parse_tag<'a>(s: &'a str) -> Option<HtmlTag<'a>> {
     let without_prefix = s.trim().strip_prefix('<')?;
-    let name_end = without_prefix.find(|c: char|
-        c.is_whitespace() || c == '>')?;
+    let name_end = without_prefix.find(|c: char| c.is_whitespace() || c == '>')?;
     let name = without_prefix.get(0..name_end)?;
 
     let html_tag = match name.strip_prefix('/') {

@@ -1,6 +1,7 @@
 use nom::{
     branch::alt,
     character::complete::{alpha1, char, none_of, space1},
+    combinator::opt,
     multi::many0,
     sequence::tuple,
     IResult,
@@ -50,6 +51,11 @@ fn spaced_attribute(input: &str) -> IResult<&str, ()> {
     Ok((input, ()))
 }
 
+fn void_delimiter(input: &str) -> IResult<&str, ()> {
+    let (input, _) = tuple((space1, char('/')))(input)?;
+    Ok((input, ()))
+}
+
 fn close_tag(input: &str) -> IResult<&str, ()> {
     let (input, _) = tuple((char('<'), char('/'), tag_name, char('>')))(input)?;
 
@@ -57,7 +63,13 @@ fn close_tag(input: &str) -> IResult<&str, ()> {
 }
 
 fn attributes_tag(input: &str) -> IResult<&str, ()> {
-    let (input, _) = tuple((char('<'), tag_name, many0(spaced_attribute), char('>')))(input)?;
+    let (input, _) = tuple((
+        char('<'),
+        tag_name,
+        many0(spaced_attribute),
+        opt(void_delimiter),
+        char('>'),
+    ))(input)?;
 
     Ok((input, ()))
 }

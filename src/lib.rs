@@ -1,45 +1,60 @@
 use nom::{
     branch::alt,
-    character::complete::{alpha1, char, none_of, space1},
+    bytes::complete::is_not,
+    character::complete::{alpha1, char, space1},
     combinator::opt,
     multi::many0,
     sequence::tuple,
     IResult,
 };
 
+#[derive(Debug, Eq, PartialEq)]
+enum HTMLTagKind {
+    Open,
+    Close,
+    Void,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct HTMLTag<'a> {
+    kind: HTMLTagKind,
+    name: &'a str,
+    attributes: Vec<(&'a str, &'a str)>,
+}
+
 /// Tag name
 ///
 /// Spec: https://html.spec.whatwg.org/multipage/syntax.html#syntax-tag-name
 ///
-fn tag_name(input: &str) -> IResult<&str, ()> {
-    let (input, _) = alpha1(input)?;
-    Ok((input, ()))
+fn tag_name(input: &str) -> IResult<&str, &str> {
+    let (input, name) = alpha1(input)?;
+    Ok((input, name))
 }
 
 /// Attribute name
 ///
 /// Spec: https://html.spec.whatwg.org/multipage/syntax.html#syntax-attribute-name
 ///
-fn attribute_name(input: &str) -> IResult<&str, ()> {
-    let (input, _) = alpha1(input)?;
-    Ok((input, ()))
+fn attribute_name(input: &str) -> IResult<&str, &str> {
+    alpha1(input)
 }
 
 /// Attribute value
 ///
 /// Spec: https://html.spec.whatwg.org/multipage/syntax.html#syntax-attribute-value
 ///
-fn attribute_value(input: &str) -> IResult<&str, ()> {
-    let (input, _) = many0(none_of("\""))(input)?;
-    Ok((input, ()))
+/// TODO: Return string slice
+///
+fn attribute_value(input: &str) -> IResult<&str, &str> {
+    is_not("\"")(input)
 }
 
 /// Spaced attribute
 ///
 /// Spec: https://html.spec.whatwg.org/multipage/syntax.html#syntax-attributes
 ///
-fn spaced_attribute(input: &str) -> IResult<&str, ()> {
-    let (input, _) = tuple((
+fn spaced_attribute(input: &str) -> IResult<&str, (&str, &str)> {
+    let (input, matches) = tuple((
         space1,
         attribute_name,
         char('='),
@@ -47,8 +62,9 @@ fn spaced_attribute(input: &str) -> IResult<&str, ()> {
         attribute_value,
         char('"'),
     ))(input)?;
+    let (_, name, _, _, value, _) = matches;
 
-    Ok((input, ()))
+    Ok((input, (name, value)))
 }
 
 fn void_delimiter(input: &str) -> IResult<&str, ()> {
@@ -56,26 +72,46 @@ fn void_delimiter(input: &str) -> IResult<&str, ()> {
     Ok((input, ()))
 }
 
-fn close_tag(input: &str) -> IResult<&str, ()> {
-    let (input, _) = tuple((char('<'), char('/'), tag_name, char('>')))(input)?;
+fn close_tag(input: &str) -> IResult<&str, HTMLTag> {
+    let (input, matches) = tuple((char('<'), char('/'), tag_name, char('>')))(input)?;
+    let (_, _, name, _) = matches;
 
-    Ok((input, ()))
+    Ok((
+        input,
+        HTMLTag {
+            kind: HTMLTagKind::Close,
+            name,
+            attributes: Vec::new(),
+        },
+    ))
 }
 
-fn attributes_tag(input: &str) -> IResult<&str, ()> {
-    let (input, _) = tuple((
+fn attributes_tag(input: &str) -> IResult<&str, HTMLTag> {
+    let (input, matches) = tuple((
         char('<'),
         tag_name,
         many0(spaced_attribute),
         opt(void_delimiter),
         char('>'),
     ))(input)?;
+    let (_, name, attributes, void_delimiter, _) = matches;
+    let kind = match void_delimiter {
+        Some(_) => HTMLTagKind::Void,
+        None => HTMLTagKind::Open,
+    };
 
-    Ok((input, ()))
+    Ok((
+        input,
+        HTMLTag {
+            kind,
+            name,
+            attributes,
+        },
+    ))
 }
 
 /// Parse HTML tag from a string
-pub fn parse_html_tag(input: &str) -> IResult<&str, ()> {
+pub fn parse_html_tag(input: &str) -> IResult<&str, HTMLTag> {
     alt((attributes_tag, close_tag))(input)
 }
 
@@ -86,29 +122,29 @@ mod tests {
 
     #[test]
     fn attribute_value() {
-        assert_eq!(super::attribute_value("a-class-name\""), Ok(("\"", ())));
+        assert_eq!(super::attribute_value("a-class-name\""), Ok(("\"", "a-class-name")));
     }
 
     #[test]
     fn open() {
-        assert_eq!(parse_html_tag("<div>"), Ok(("", ())));
+        assert_eq!(parse_html_tag("<div>"), Ok(("", HTMLTag { kind: HTMLTagKind::Open, name: "div", attributes: Vec::new() })));
     }
 
     #[test]
     fn close() {
-        assert_eq!(parse_html_tag("</div>"), Ok(("", ())));
+        assert_eq!(parse_html_tag("</div>"), Ok(("", HTMLTag { kind: HTMLTagKind::Close, name: "div", attributes: Vec::new() })));
     }
 
     #[test]
     fn void() {
-        assert_eq!(parse_html_tag("<input />"), Ok(("", ())));
+        assert_eq!(parse_html_tag("<input />"), Ok(("", HTMLTag { kind: HTMLTagKind::Void, name: "input", attributes: Vec::new() })));
     }
 
     #[test]
     fn open_with_attributes() {
         assert_eq!(
             parse_html_tag("<div id=\"main\" class=\"layout\">"),
-            Ok(("", ()))
+            Ok(("", HTMLTag { kind: HTMLTagKind::Open, name: "div", attributes: vec![("id", "main"), ("class", "layout")]}))
         );
     }
 
@@ -116,7 +152,7 @@ mod tests {
     fn void_with_attributes() {
         assert_eq!(
             parse_html_tag("<input type=\"radio\" class=\"custom-radio\" />"),
-            Ok(("", ()))
+            Ok(("", HTMLTag { kind: HTMLTagKind::Void, name: "input", attributes: vec![("type", "radio"), ("class", "custom-radio")]}))
         );
     }
 

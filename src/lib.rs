@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::is_not,
-    character::complete::{alpha1, char, space1},
+    character::complete::{alpha1, char, space1, multispace0},
     combinator::opt,
     multi::many0,
     sequence::tuple,
@@ -35,6 +35,7 @@ pub struct HTMLTag<'a> {
 impl<'a> HTMLTag<'a> {
     /// Parse HTML tag from string
     pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
+        let (input, _) = multispace0(input)?;
         alt((attributes_tag, close_tag))(input)
     }
 }

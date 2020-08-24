@@ -13,8 +13,10 @@ use std::process::{Command, Stdio};
 use std::str;
 
 mod lib;
+mod html_standard;
 
 use lib::{HTMLTag, HTMLTagKind};
+use html_standard::STANDARD_HTML_ELEMENTS;
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -104,10 +106,12 @@ enum EmbedParsing<'a> {
     Start {
         executable: &'a str,
         args: Option<&'a str>,
+        depth: isize,
     },
     Partial {
         executable: &'a str,
         args: Option<&'a str>,
+        depth: isize,
         range: Range<usize>,
     },
 }
@@ -206,19 +210,21 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
             None
         };
 
+        println!("{:?} {:?}", event, html_tag);
+
         match (depth, &html_tag, &mut embed_request) {
             //
             // Starting an embed
             //
             (
-                0,
+                _,
                 Some(HTMLTag {
                     kind: HTMLTagKind::Open,
                     name,
                     attributes,
                 }),
                 EmbedParsing::None,
-            ) => {
+            ) if STANDARD_HTML_ELEMENTS.get(name).is_none() => {
                 let args = attributes
                     .into_iter()
                     .find(|(attr_name, _)| attr_name == &"args")
@@ -226,13 +232,20 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
                 embed_request = EmbedParsing::Start {
                     executable: name,
                     args,
+                    depth,
                 };
+            }
+            //
+            // Non-embed, pass over it
+            //
+            (_, _, EmbedParsing::None) => {
+                pieces.push(Piece::Markdown(event));
             }
             //
             // Ending an embed
             //
             (
-                1,
+                _,
                 Some(HTMLTag {
                     kind: HTMLTagKind::Close,
                     ..
@@ -241,8 +254,9 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
                     executable,
                     args,
                     range: Range { start, end },
+                    depth: embed_depth,
                 },
-            ) => {
+            ) if depth == *embed_depth + 1 => {
                 embed_requests.push(EmbedRequest {
                     executable,
                     args: *args,
@@ -252,11 +266,12 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
                 pieces.push(Piece::EmbedPending);
                 embed_request = EmbedParsing::None;
             }
-            (_, _, EmbedParsing::Start { executable, args }) => {
+            (_, _, EmbedParsing::Start { executable, args , depth}) => {
                 embed_request = EmbedParsing::Partial {
                     executable,
                     args: *args,
                     range,
+                    depth: *depth,
                 };
             }
             (
@@ -268,12 +283,7 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
             ) => {
                 req_range.end = range.end;
             }
-            _ => {}
         };
-
-        if html_tag.is_none() && depth < 1 {
-            pieces.push(Piece::Markdown(event));
-        }
 
         if let Some(HTMLTag { kind, .. }) = html_tag {
             depth += kind.depth_change();

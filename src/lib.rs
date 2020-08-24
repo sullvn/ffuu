@@ -9,17 +9,34 @@ use nom::{
 };
 
 #[derive(Debug, Eq, PartialEq)]
-enum HTMLTagKind {
+pub enum HTMLTagKind {
     Open,
     Close,
     Void,
 }
 
+impl HTMLTagKind {
+    pub fn depth_change(&self) -> isize {
+        match self {
+            HTMLTagKind::Open => 1,
+            HTMLTagKind::Void => 0,
+            HTMLTagKind::Close => -1,
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct HTMLTag<'a> {
-    kind: HTMLTagKind,
-    name: &'a str,
-    attributes: Vec<(&'a str, &'a str)>,
+    pub kind: HTMLTagKind,
+    pub name: &'a str,
+    pub attributes: Vec<(&'a str, &'a str)>,
+}
+
+impl<'a> HTMLTag<'a> {
+    /// Parse HTML tag from string
+    pub fn parse(input: &'a str) -> IResult<&'a str, Self> {
+        alt((attributes_tag, close_tag))(input)
+    }
 }
 
 /// Tag name
@@ -110,11 +127,6 @@ fn attributes_tag(input: &str) -> IResult<&str, HTMLTag> {
     ))
 }
 
-/// Parse HTML tag from a string
-pub fn parse_html_tag(input: &str) -> IResult<&str, HTMLTag> {
-    alt((attributes_tag, close_tag))(input)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,49 +134,96 @@ mod tests {
 
     #[test]
     fn attribute_value() {
-        assert_eq!(super::attribute_value("a-class-name\""), Ok(("\"", "a-class-name")));
+        assert_eq!(
+            super::attribute_value("a-class-name\""),
+            Ok(("\"", "a-class-name"))
+        );
     }
 
     #[test]
     fn open() {
-        assert_eq!(parse_html_tag("<div>"), Ok(("", HTMLTag { kind: HTMLTagKind::Open, name: "div", attributes: Vec::new() })));
+        assert_eq!(
+            HTMLTag::parse("<div>"),
+            Ok((
+                "",
+                HTMLTag {
+                    kind: HTMLTagKind::Open,
+                    name: "div",
+                    attributes: Vec::new()
+                }
+            ))
+        );
     }
 
     #[test]
     fn close() {
-        assert_eq!(parse_html_tag("</div>"), Ok(("", HTMLTag { kind: HTMLTagKind::Close, name: "div", attributes: Vec::new() })));
+        assert_eq!(
+            HTMLTag::parse("</div>"),
+            Ok((
+                "",
+                HTMLTag {
+                    kind: HTMLTagKind::Close,
+                    name: "div",
+                    attributes: Vec::new()
+                }
+            ))
+        );
     }
 
     #[test]
     fn void() {
-        assert_eq!(parse_html_tag("<input />"), Ok(("", HTMLTag { kind: HTMLTagKind::Void, name: "input", attributes: Vec::new() })));
+        assert_eq!(
+            HTMLTag::parse("<input />"),
+            Ok((
+                "",
+                HTMLTag {
+                    kind: HTMLTagKind::Void,
+                    name: "input",
+                    attributes: Vec::new()
+                }
+            ))
+        );
     }
 
     #[test]
     fn open_with_attributes() {
         assert_eq!(
-            parse_html_tag("<div id=\"main\" class=\"layout\">"),
-            Ok(("", HTMLTag { kind: HTMLTagKind::Open, name: "div", attributes: vec![("id", "main"), ("class", "layout")]}))
+            HTMLTag::parse("<div id=\"main\" class=\"layout\">"),
+            Ok((
+                "",
+                HTMLTag {
+                    kind: HTMLTagKind::Open,
+                    name: "div",
+                    attributes: vec![("id", "main"), ("class", "layout")]
+                }
+            ))
         );
     }
 
     #[test]
     fn void_with_attributes() {
         assert_eq!(
-            parse_html_tag("<input type=\"radio\" class=\"custom-radio\" />"),
-            Ok(("", HTMLTag { kind: HTMLTagKind::Void, name: "input", attributes: vec![("type", "radio"), ("class", "custom-radio")]}))
+            HTMLTag::parse("<input type=\"radio\" class=\"custom-radio\" />"),
+            Ok((
+                "",
+                HTMLTag {
+                    kind: HTMLTagKind::Void,
+                    name: "input",
+                    attributes: vec![("type", "radio"), ("class", "custom-radio")]
+                }
+            ))
         );
     }
 
     #[test]
     fn empty_error() {
-        assert_eq!(parse_html_tag(""), Err(Err::Error(("", ErrorKind::Char))));
+        assert_eq!(HTMLTag::parse(""), Err(Err::Error(("", ErrorKind::Char))));
     }
 
     #[test]
     fn close_with_attributes_error() {
         assert_eq!(
-            parse_html_tag("</div id=\"main\" class=\"layout\">"),
+            HTMLTag::parse("</div id=\"main\" class=\"layout\">"),
             Err(Err::Error((
                 " id=\"main\" class=\"layout\">",
                 ErrorKind::Char

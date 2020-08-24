@@ -12,6 +12,10 @@ use std::ops::Range;
 use std::process::{Command, Stdio};
 use std::str;
 
+mod lib;
+
+use lib::{HTMLTag, HTMLTagKind};
+
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -89,7 +93,7 @@ fn do_embed_request(request: &EmbedRequest) -> anyhow::Result<String> {
 
 fn embed_result_piece<'a>(result: &'a anyhow::Result<String>) -> Piece<'a> {
     match result {
-        Ok(embed_text) => Piece::EmbedResult(Parser::new(embed_text)),
+        Ok(embed_text) => Piece::EmbedResult(Parser::new(embed_text.trim())),
         Err(_) => Piece::EmbedError,
     }
 }
@@ -98,18 +102,21 @@ fn embed_result_piece<'a>(result: &'a anyhow::Result<String>) -> Piece<'a> {
 enum EmbedParsing<'a> {
     None,
     Start {
-        command: &'a str,
+        executable: &'a str,
+        args: Option<&'a str>,
     },
     Partial {
-        command: &'a str,
+        executable: &'a str,
+        args: Option<&'a str>,
         range: Range<usize>,
     },
 }
 
 #[derive(Debug)]
 struct EmbedRequest<'a> {
-    command: &'a str,
+    executable: &'a str,
     input: &'a str,
+    args: Option<&'a str>,
     piece_index: usize,
 }
 
@@ -162,8 +169,15 @@ impl<'a> Iterator for EmbarkdownParser<'a> {
 }
 
 fn exec_embed(request: &EmbedRequest) -> anyhow::Result<Vec<u8>> {
-    let EmbedRequest { command, input, .. } = request;
-    let mut child = Command::new(command)
+    let EmbedRequest {
+        executable,
+        args: maybe_args,
+        input,
+        ..
+    } = request;
+    let split_args = maybe_args.unwrap_or("").split(' ');
+    let mut child = Command::new(executable)
+        .args(split_args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;
@@ -187,7 +201,7 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
     let mut md_offset_events = Parser::new(text).into_offset_iter();
     while let Some((event, range)) = md_offset_events.next() {
         let html_tag = if let Event::Html(CowStr::Borrowed(tag)) = event {
-            parse_tag(&tag)
+            HTMLTag::parse(&tag).map(|(_input, tag)| tag).ok()
         } else {
             None
         };
@@ -198,38 +212,52 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
             //
             (
                 0,
-                Some(HtmlTag {
+                Some(HTMLTag {
+                    kind: HTMLTagKind::Open,
                     name,
-                    direction: TagDirection::Open,
+                    attributes,
                 }),
                 EmbedParsing::None,
             ) => {
-                embed_request = EmbedParsing::Start { command: name };
+                let args = attributes
+                    .into_iter()
+                    .find(|(attr_name, _)| attr_name == &"args")
+                    .map(|(_, args_value)| *args_value);
+                embed_request = EmbedParsing::Start {
+                    executable: name,
+                    args,
+                };
             }
             //
             // Ending an embed
             //
             (
                 1,
-                Some(HtmlTag {
-                    direction: TagDirection::Close,
+                Some(HTMLTag {
+                    kind: HTMLTagKind::Close,
                     ..
                 }),
                 EmbedParsing::Partial {
-                    command,
+                    executable,
+                    args,
                     range: Range { start, end },
                 },
             ) => {
                 embed_requests.push(EmbedRequest {
-                    command,
+                    executable,
+                    args: *args,
                     input: &text[*start..*end],
                     piece_index: pieces.len(),
                 });
                 pieces.push(Piece::EmbedPending);
                 embed_request = EmbedParsing::None;
             }
-            (_, _, EmbedParsing::Start { command }) => {
-                embed_request = EmbedParsing::Partial { command, range };
+            (_, _, EmbedParsing::Start { executable, args }) => {
+                embed_request = EmbedParsing::Partial {
+                    executable,
+                    args: *args,
+                    range,
+                };
             }
             (
                 _,
@@ -247,49 +275,10 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
             pieces.push(Piece::Markdown(event));
         }
 
-        if let Some(HtmlTag { direction, .. }) = html_tag {
-            depth += direction.depth_change();
+        if let Some(HTMLTag { kind, .. }) = html_tag {
+            depth += kind.depth_change();
         }
     }
 
     (pieces, embed_requests)
-}
-
-#[derive(Eq, PartialEq, Debug)]
-enum TagDirection {
-    Open,
-    Close,
-}
-
-impl TagDirection {
-    fn depth_change(&self) -> isize {
-        match self {
-            TagDirection::Open => 1,
-            TagDirection::Close => -1,
-        }
-    }
-}
-
-struct HtmlTag<'a> {
-    name: &'a str,
-    direction: TagDirection,
-}
-
-fn parse_tag<'a>(s: &'a str) -> Option<HtmlTag<'a>> {
-    let without_prefix = s.trim().strip_prefix('<')?;
-    let name_end = without_prefix.find(|c: char| c.is_whitespace() || c == '>')?;
-    let name = without_prefix.get(0..name_end)?;
-
-    let html_tag = match name.strip_prefix('/') {
-        None => HtmlTag {
-            name,
-            direction: TagDirection::Open,
-        },
-        Some(name) => HtmlTag {
-            name,
-            direction: TagDirection::Close,
-        },
-    };
-
-    Some(html_tag)
 }

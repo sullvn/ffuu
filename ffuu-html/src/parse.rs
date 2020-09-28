@@ -3,11 +3,13 @@ use nom::{
     bytes::complete::is_not,
     character::complete::{alpha1, char, multispace0, one_of, space1},
     combinator::opt,
+    error::ErrorKind,
     multi::many0,
     sequence::tuple,
-    IResult,
+    Err, IResult,
 };
 
+use crate::standard_elements::VOID_HTML_ELEMENTS;
 use crate::types::{HTMLTag, HTMLTagKind};
 
 impl<'a> HTMLTag<'a> {
@@ -112,7 +114,7 @@ fn close_tag(input: &str) -> IResult<&str, HTMLTag> {
 }
 
 fn attributes_tag(input: &str) -> IResult<&str, HTMLTag> {
-    let (input, matches) = tuple((
+    let (input_rest, matches) = tuple((
         char('<'),
         tag_name,
         many0(spaced_attribute),
@@ -120,13 +122,17 @@ fn attributes_tag(input: &str) -> IResult<&str, HTMLTag> {
         char('>'),
     ))(input)?;
     let (_, name, attributes, void_delimiter, _) = matches;
-    let kind = match void_delimiter {
-        Some(_) => HTMLTagKind::Void,
-        None => HTMLTagKind::Open,
-    };
+
+    let is_void_name = VOID_HTML_ELEMENTS.contains(name);
+    let has_void_delimiter = void_delimiter.is_some();
+    let kind = match (is_void_name, has_void_delimiter) {
+        (true, _) => Ok(HTMLTagKind::Void),
+        (false, false) => Ok(HTMLTagKind::Open),
+        (false, true) => Err(Err::Error((input_rest, ErrorKind::Tag))),
+    }?;
 
     Ok((
-        input,
+        input_rest,
         HTMLTag {
             kind,
             name,
@@ -208,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn void() {
+    fn void_xhtml() {
         assert_eq!(
             HTMLTag::parse("<input />"),
             Ok((
@@ -219,6 +225,29 @@ mod tests {
                     attributes: Vec::new()
                 }
             ))
+        );
+    }
+
+    #[test]
+    fn void_html() {
+        assert_eq!(
+            HTMLTag::parse("<input>"),
+            Ok((
+                "",
+                HTMLTag {
+                    kind: HTMLTagKind::Void,
+                    name: "input",
+                    attributes: Vec::new()
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn void_wrong_xhtml() {
+        assert_eq!(
+            HTMLTag::parse("<div />"),
+            Err(Err::Error(("div />", ErrorKind::Char)))
         );
     }
 

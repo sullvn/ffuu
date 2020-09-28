@@ -1,7 +1,6 @@
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 
-
 lazy_static! {
     pub static ref STANDARD_HTML_ELEMENTS: HashSet<&'static str> = [
         "a",
@@ -149,6 +148,32 @@ lazy_static! {
         "video",
         "wbr",
         "xmp",
+    ]
+    .iter()
+    .copied()
+    .collect();
+
+    /// Void HTML elements list
+    ///
+    /// These do not require a closing tag.
+    ///
+    /// Spec: https://html.spec.whatwg.org/multipage/syntax.html#void-elements
+    ///
+    pub static ref VOID_HTML_ELEMENTS: HashSet<&'static str> = [
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
     ]
     .iter()
     .copied()

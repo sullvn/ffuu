@@ -4,7 +4,7 @@ use async_std::io;
 use async_std::path::Path;
 use async_std::prelude::StreamExt;
 use async_std::task::spawn;
-use ffuu_html::{HTMLTag, HTMLTagKind, STANDARD_HTML_ELEMENTS};
+use ffuu_html::{parse_tag, HTMLTag, HTMLTagKind, STANDARD_HTML_ELEMENTS};
 use futures::future;
 use pulldown_cmark::{html, CowStr, Event, Parser};
 use std::env;
@@ -200,7 +200,7 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
     let mut md_offset_events = Parser::new(text).into_offset_iter();
     while let Some((event, range)) = md_offset_events.next() {
         let html_tag = if let Event::Html(CowStr::Borrowed(tag)) = event {
-            HTMLTag::parse(&tag).map(|(_input, tag)| tag).ok()
+            parse_tag(&tag).map(|(_input, tag)| tag).ok()
         } else {
             None
         };

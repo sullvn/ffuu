@@ -23,12 +23,7 @@ pub struct HTMLTag<'a> {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct HTMLOther<'a> {
-    pub text: &'a str,
-}
-
-#[derive(Debug, Eq, PartialEq)]
 pub enum HTMLPart<'a> {
     Tag(HTMLTag<'a>),
-    Other(HTMLTag<'a>),
+    Other(&'a str),
 }

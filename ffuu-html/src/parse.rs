@@ -1,36 +1,14 @@
 use nom::{
     branch::alt,
     bytes::complete::is_not,
-    character::complete::{alpha1, char, space1, multispace0},
+    character::complete::{alpha1, char, multispace0, one_of, space1},
     combinator::opt,
     multi::many0,
     sequence::tuple,
     IResult,
 };
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum HTMLTagKind {
-    Open,
-    Close,
-    Void,
-}
-
-impl HTMLTagKind {
-    pub fn depth_change(&self) -> isize {
-        match self {
-            HTMLTagKind::Open => 1,
-            HTMLTagKind::Void => 0,
-            HTMLTagKind::Close => -1,
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct HTMLTag<'a> {
-    pub kind: HTMLTagKind,
-    pub name: &'a str,
-    pub attributes: Vec<(&'a str, &'a str)>,
-}
+use crate::types::{HTMLTag, HTMLTagKind};
 
 impl<'a> HTMLTag<'a> {
     /// Parse HTML tag from string
@@ -59,28 +37,57 @@ fn attribute_name(input: &str) -> IResult<&str, &str> {
 
 /// Attribute value
 ///
+/// Supports the four different types:
+///
+/// - Empty
+/// - Unquoted
+/// - Single quoted
+/// - Double quoted
+///
 /// Spec: https://html.spec.whatwg.org/multipage/syntax.html#syntax-attribute-value
 ///
-/// TODO: Return string slice
-///
-fn attribute_value(input: &str) -> IResult<&str, &str> {
-    is_not("\"")(input)
+fn attribute_value(input: &str) -> IResult<&str, Option<&str>> {
+    alt((
+        attribute_value_double_quoted,
+        attribute_value_single_quoted,
+        attribute_value_unquoted,
+        attribute_value_empty,
+    ))(input)
+}
+
+fn attribute_value_double_quoted(input: &str) -> IResult<&str, Option<&str>> {
+    let (input, matches) = tuple((char('='), char('"'), is_not("\""), char('"')))(input)?;
+    let (_, _, value, _) = matches;
+
+    Ok((input, Some(value)))
+}
+
+fn attribute_value_single_quoted(input: &str) -> IResult<&str, Option<&str>> {
+    let (input, matches) = tuple((char('='), char('\''), is_not("'"), char('\'')))(input)?;
+    let (_, _, value, _) = matches;
+
+    Ok((input, Some(value)))
+}
+
+fn attribute_value_unquoted(input: &str) -> IResult<&str, Option<&str>> {
+    let (input, (_, value)) = tuple((char('='), is_not(" \u{0c}\t\r\n\"'=<>`")))(input)?;
+
+    Ok((input, Some(value)))
+}
+
+fn attribute_value_empty(input: &str) -> IResult<&str, Option<&str>> {
+    let _ = one_of(" \t\r\n>")(input)?;
+
+    Ok((input, None))
 }
 
 /// Spaced attribute
 ///
 /// Spec: https://html.spec.whatwg.org/multipage/syntax.html#syntax-attributes
 ///
-fn spaced_attribute(input: &str) -> IResult<&str, (&str, &str)> {
-    let (input, matches) = tuple((
-        space1,
-        attribute_name,
-        char('='),
-        char('"'),
-        attribute_value,
-        char('"'),
-    ))(input)?;
-    let (_, name, _, _, value, _) = matches;
+fn spaced_attribute(input: &str) -> IResult<&str, (&str, Option<&str>)> {
+    let (input, matches) = tuple((space1, attribute_name, attribute_value))(input)?;
+    let (_, name, value) = matches;
 
     Ok((input, (name, value)))
 }
@@ -134,10 +141,39 @@ mod tests {
     use nom::{error::ErrorKind, Err};
 
     #[test]
-    fn attribute_value() {
+    fn attribute_value_double_quoted() {
         assert_eq!(
-            super::attribute_value("a-class-name\""),
-            Ok(("\"", "a-class-name"))
+            super::attribute_value("=\"some value\">"),
+            Ok((">", Some("some value")))
+        );
+    }
+
+    #[test]
+    fn attribute_value_single_quoted() {
+        assert_eq!(
+            super::attribute_value("='some value'>"),
+            Ok((">", Some("some value")))
+        );
+    }
+
+    #[test]
+    fn attribute_value_unquoted() {
+        assert_eq!(
+            super::attribute_value("=some-value>"),
+            Ok((">", Some("some-value")))
+        );
+    }
+
+    #[test]
+    fn attribute_value_empty() {
+        assert_eq!(super::attribute_value(" >"), Ok((" >", None)));
+    }
+
+    #[test]
+    fn attribute_value_incomplete() {
+        assert_eq!(
+            super::attribute_value("= >"),
+            Err(Err::Error(("= >", ErrorKind::OneOf)))
         );
     }
 
@@ -195,7 +231,7 @@ mod tests {
                 HTMLTag {
                     kind: HTMLTagKind::Open,
                     name: "div",
-                    attributes: vec![("id", "main"), ("class", "layout")]
+                    attributes: vec![("id", Some("main")), ("class", Some("layout"))]
                 }
             ))
         );
@@ -210,7 +246,7 @@ mod tests {
                 HTMLTag {
                     kind: HTMLTagKind::Void,
                     name: "input",
-                    attributes: vec![("type", "radio"), ("class", "custom-radio")]
+                    attributes: vec![("type", Some("radio")), ("class", Some("custom-radio"))]
                 }
             ))
         );

@@ -4,6 +4,7 @@ use async_std::io;
 use async_std::path::Path;
 use async_std::prelude::StreamExt;
 use async_std::task::spawn;
+use ffuu_html::{HTMLTag, HTMLTagKind, STANDARD_HTML_ELEMENTS};
 use futures::future;
 use pulldown_cmark::{html, CowStr, Event, Parser};
 use std::env;
@@ -11,12 +12,6 @@ use std::io::Write;
 use std::ops::Range;
 use std::process::{Command, Stdio};
 use std::str;
-
-mod lib;
-mod html_standard;
-
-use lib::{HTMLTag, HTMLTagKind};
-use html_standard::STANDARD_HTML_ELEMENTS;
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -228,7 +223,8 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
                 let args = attributes
                     .into_iter()
                     .find(|(attr_name, _)| attr_name == &"args")
-                    .map(|(_, args_value)| *args_value);
+                    .map(|(_, args_value)| *args_value)
+                    .flatten();
                 embed_request = EmbedParsing::Start {
                     executable: name,
                     args,
@@ -266,7 +262,15 @@ fn do_parse<'a>(text: &'a str) -> (Vec<Piece<'a>>, Vec<EmbedRequest<'a>>) {
                 pieces.push(Piece::EmbedPending);
                 embed_request = EmbedParsing::None;
             }
-            (_, _, EmbedParsing::Start { executable, args , depth}) => {
+            (
+                _,
+                _,
+                EmbedParsing::Start {
+                    executable,
+                    args,
+                    depth,
+                },
+            ) => {
                 embed_request = EmbedParsing::Partial {
                     executable,
                     args: *args,

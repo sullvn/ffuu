@@ -1,6 +1,7 @@
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 
+
 lazy_static! {
     pub static ref STANDARD_HTML_ELEMENTS: HashSet<&'static str> = [
         "a",

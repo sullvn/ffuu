@@ -5,13 +5,4 @@ authors = ["Kevin Sullivan <kevin@sull.vn>"]
 edition = "2018"
 
 [dependencies]
-pulldown-cmark = "0.7.2"
-anyhow = "1.0"
-futures = "0.3"
-nom = "5"
-lazy_static = "1.4"
-ffuu-html = { path = "../ffuu-html" }
-
-[dependencies.async-std]
-version = "1.6"
-features = ["attributes"]
+clap = "2"

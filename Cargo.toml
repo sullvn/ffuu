@@ -3,4 +3,5 @@
 members = [
   "ffuu-cli",
   "ffuu-html",
+  "ffuu-old",
 ]

@@ -190,6 +190,8 @@ checksum = "36a9cb09840f81cd211e435d00a4e487edd263dc3c8ff815c32dd76ad668ebed"
 name = "ffuu-cli"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-std",
  "clap",
 ]
 

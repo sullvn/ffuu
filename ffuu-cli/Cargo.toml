@@ -5,4 +5,9 @@ authors = ["Kevin Sullivan <kevin@sull.vn>"]
 edition = "2018"
 
 [dependencies]
+anyhow = "1"
 clap = "2"
+
+[dependencies.async-std]
+version = "1.6"
+features = ["attributes"]

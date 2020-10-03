@@ -28,6 +28,14 @@ mod tests {
     use crate::types::{HTMLTag, HTMLTagKind};
 
     #[test]
+    fn only_text() {
+        assert_eq!(
+            parse_all_parts("No tags, just text."),
+            Ok(("", vec![HTMLPart::Other("No tags, just text.")]))
+        );
+    }
+
+    #[test]
     fn tag_with_text() {
         assert_eq!(
             parse_all_parts("Outside <p class=\"test\" toggle>Some content.</p> text"),
@@ -47,6 +55,44 @@ mod tests {
                         attributes: vec![],
                     }),
                     HTMLPart::Other(" text")
+                ]
+            ))
+        );
+    }
+
+    #[test]
+    fn nested_tags() {
+        assert_eq!(
+            parse_all_parts("<form><label>Radio</label><input type=\"radio\"></form>"),
+            Ok((
+                "",
+                vec![
+                    HTMLPart::Tag(HTMLTag {
+                        kind: HTMLTagKind::Open,
+                        name: "form",
+                        attributes: vec![],
+                    }),
+                    HTMLPart::Tag(HTMLTag {
+                        kind: HTMLTagKind::Open,
+                        name: "label",
+                        attributes: vec![],
+                    }),
+                    HTMLPart::Other("Radio"),
+                    HTMLPart::Tag(HTMLTag {
+                        kind: HTMLTagKind::Close,
+                        name: "label",
+                        attributes: vec![],
+                    }),
+                    HTMLPart::Tag(HTMLTag {
+                        kind: HTMLTagKind::Void,
+                        name: "input",
+                        attributes: vec![("type", Some("radio"))],
+                    }),
+                    HTMLPart::Tag(HTMLTag {
+                        kind: HTMLTagKind::Close,
+                        name: "form",
+                        attributes: vec![],
+                    }),
                 ]
             ))
         );

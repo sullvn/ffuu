@@ -8,18 +8,18 @@ pub fn parse_all_parts(input: &str) -> IResult<&str, Vec<HTMLPart>> {
 }
 
 fn parse_part(input: &str) -> IResult<&str, HTMLPart> {
-    alt((parse_other, parse_tag_wrapped))(input)
+    alt((parse_tag_part, parse_text_part))(input)
 }
 
-fn parse_tag_wrapped(input: &str) -> IResult<&str, HTMLPart> {
+fn parse_tag_part(input: &str) -> IResult<&str, HTMLPart> {
     let (input, tag) = parse_tag(input)?;
     Ok((input, HTMLPart::Tag(tag)))
 }
 
-fn parse_other(input: &str) -> IResult<&str, HTMLPart> {
+fn parse_text_part(input: &str) -> IResult<&str, HTMLPart> {
     let (input, text) = is_not("<")(input)?;
 
-    Ok((input, HTMLPart::Other(text)))
+    Ok((input, HTMLPart::Text(text)))
 }
 
 #[cfg(test)]
@@ -31,7 +31,7 @@ mod tests {
     fn only_text() {
         assert_eq!(
             parse_all_parts("No tags, just text."),
-            Ok(("", vec![HTMLPart::Other("No tags, just text.")]))
+            Ok(("", vec![HTMLPart::Text("No tags, just text.")]))
         );
     }
 
@@ -42,19 +42,19 @@ mod tests {
             Ok((
                 "",
                 vec![
-                    HTMLPart::Other("Outside "),
+                    HTMLPart::Text("Outside "),
                     HTMLPart::Tag(HTMLTag {
                         kind: HTMLTagKind::Open,
                         name: "p",
                         attributes: vec![("class", Some("test")), ("toggle", None)],
                     }),
-                    HTMLPart::Other("Some content."),
+                    HTMLPart::Text("Some content."),
                     HTMLPart::Tag(HTMLTag {
                         kind: HTMLTagKind::Close,
                         name: "p",
                         attributes: vec![],
                     }),
-                    HTMLPart::Other(" text")
+                    HTMLPart::Text(" text")
                 ]
             ))
         );
@@ -77,7 +77,7 @@ mod tests {
                         name: "label",
                         attributes: vec![],
                     }),
-                    HTMLPart::Other("Radio"),
+                    HTMLPart::Text("Radio"),
                     HTMLPart::Tag(HTMLTag {
                         kind: HTMLTagKind::Close,
                         name: "label",

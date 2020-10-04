@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    character::complete::{alpha1, char, multispace0, space1},
+    character::complete::{alphanumeric1, char, multispace0, space1},
     combinator::opt,
     error::ErrorKind,
     multi::many0,
@@ -64,7 +64,7 @@ fn close_tag(input: &str) -> IResult<&str, HTMLTag> {
 /// Spec: https://html.spec.whatwg.org/multipage/syntax.html#syntax-tag-name
 ///
 fn tag_name(input: &str) -> IResult<&str, &str> {
-    let (input, name) = alpha1(input)?;
+    let (input, name) = alphanumeric1(input)?;
     Ok((input, name))
 }
 
@@ -87,6 +87,21 @@ mod tests {
                 HTMLTag {
                     kind: HTMLTagKind::Open,
                     name: "div",
+                    attributes: Vec::new()
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn open_alphanumeric() {
+        assert_eq!(
+            parse_tag("<h1>"),
+            Ok((
+                "",
+                HTMLTag {
+                    kind: HTMLTagKind::Open,
+                    name: "h1",
                     attributes: Vec::new()
                 }
             ))

@@ -7,6 +7,8 @@ edition = "2018"
 [dependencies]
 anyhow = "1"
 clap = "2"
+url = "2"
+ffuu-html = { path = "../ffuu-html" }
 
 [dependencies.async-std]
 version = "1.6"

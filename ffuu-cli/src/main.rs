@@ -1,17 +1,19 @@
 use async_std::fs::{create_dir_all, remove_dir_all};
 use async_std::io;
 
+mod add_file;
+mod add_html_file;
 mod args;
-mod process_file;
+mod file_helpers;
 
+use add_html_file::add_html_file;
 use args::Arguments;
-use process_file::process_file;
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
     let args = Arguments::parse();
     prepare_output_dir(args.output_dir_path()).await?;
-    process_file(args.output_dir_path(), args.input_file_path()).await?;
+    add_html_file(args.output_dir_path(), args.input_file_path()).await?;
 
     Ok(())
 }

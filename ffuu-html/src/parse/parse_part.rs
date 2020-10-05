@@ -1,6 +1,7 @@
 use nom::{branch::alt, bytes::complete::is_not, combinator::all_consuming, multi::many0, IResult};
 
 use super::parse_comment::parse_comment_part;
+use super::parse_doctype::parse_doctype_part;
 use super::parse_tag::parse_tag;
 use crate::types::HTMLPart;
 
@@ -9,7 +10,12 @@ pub fn parse_all_parts(input: &str) -> IResult<&str, Vec<HTMLPart>> {
 }
 
 fn parse_part(input: &str) -> IResult<&str, HTMLPart> {
-    alt((parse_tag_part, parse_text_part, parse_comment_part))(input)
+    alt((
+        parse_comment_part,
+        parse_doctype_part,
+        parse_tag_part,
+        parse_text_part,
+    ))(input)
 }
 
 fn parse_tag_part(input: &str) -> IResult<&str, HTMLPart> {

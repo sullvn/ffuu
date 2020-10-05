@@ -1,5 +1,6 @@
 mod parse_attribute;
 mod parse_comment;
+mod parse_doctype;
 mod parse_part;
 mod parse_tag;
 

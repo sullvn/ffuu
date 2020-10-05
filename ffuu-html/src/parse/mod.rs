@@ -1,4 +1,5 @@
 mod parse_attribute;
+mod parse_comment;
 mod parse_part;
 mod parse_tag;
 

@@ -24,6 +24,7 @@ pub struct HTMLTag<'a> {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum HTMLPart<'a> {
+    Comment(&'a str),
     Tag(HTMLTag<'a>),
     Text(&'a str),
 }

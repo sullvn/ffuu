@@ -1,6 +1,5 @@
 use async_std::io::prelude::{ReadExt, WriteExt};
 use async_std::io::{stdin, stdout};
-use pulldown_cmark::{html, Parser};
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -13,13 +12,13 @@ async fn main() -> anyhow::Result<()> {
     //
     // Parse
     //
-    let parser = Parser::new(&input);
+    // NOOP
 
     //
     // Render
     //
     let mut output = String::new();
-    html::push_html(&mut output, parser);
+    output.push_str(&input);
 
     //
     // Write

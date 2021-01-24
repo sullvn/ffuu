@@ -10,7 +10,7 @@ anyhow = "1.0"
 futures = "0.3"
 nom = "5"
 lazy_static = "1.4"
-ffuu-html = { path = "../ffuu-html" }
+html-parse = { path = "../html-parse" }
 
 [dependencies.async-std]
 version = "1.6"

@@ -193,16 +193,8 @@ dependencies = [
  "anyhow",
  "async-std",
  "clap",
- "ffuu-html",
+ "html-parse",
  "url",
-]
-
-[[package]]
-name = "ffuu-html"
-version = "0.1.0"
-dependencies = [
- "lazy_static",
- "nom",
 ]
 
 [[package]]
@@ -220,8 +212,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-std",
- "ffuu-html",
  "futures",
+ "html-parse",
  "lazy_static",
  "nom",
  "pulldown-cmark 0.7.2",
@@ -351,6 +343,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3deed196b6e7f9e44a2ae8d94225d80302d81208b1bb673fd21fe634645c85a9"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "html-parse"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "nom",
 ]
 
 [[package]]

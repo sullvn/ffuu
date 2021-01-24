@@ -2,7 +2,7 @@ use crate::add_file::add_file;
 use crate::file_helpers::{read_file, write_file};
 use anyhow::anyhow;
 use async_std::path::Path;
-use ffuu_html::{parse_all_parts, HTMLPart, URI_HTML_ATTRIBUTES};
+use html_parse::{parse_all_parts, HTMLPart, URI_HTML_ATTRIBUTES};
 use std::str;
 use url::Url;
 

@@ -1,5 +1,6 @@
 use async_std::io::prelude::{ReadExt, WriteExt};
 use async_std::io::{stdin, stdout};
+use html_parse::{format_html, parse_html};
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -12,13 +13,12 @@ async fn main() -> anyhow::Result<()> {
     //
     // Parse
     //
-    // NOOP
+    let result = parse_html(&input)?;
 
     //
     // Render
     //
-    let mut output = String::new();
-    output.push_str(&input);
+    let output = format_html(result);
 
     //
     // Write

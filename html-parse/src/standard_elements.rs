@@ -2,6 +2,10 @@ use lazy_static::lazy_static;
 use std::collections::HashSet;
 
 lazy_static! {
+    /// Standard HTML elements list
+    ///
+    /// Spec: https://html.spec.whatwg.org/multipage/semantics.html#semantics
+    ///
     pub static ref STANDARD_HTML_ELEMENTS: HashSet<&'static str> = [
         "a",
         "abbr",

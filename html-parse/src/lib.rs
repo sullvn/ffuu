@@ -1,3 +1,4 @@
+mod embeds;
 mod format;
 mod parse;
 mod standard_attributes;

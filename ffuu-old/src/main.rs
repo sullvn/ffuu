@@ -5,7 +5,7 @@ use async_std::path::Path;
 use async_std::prelude::StreamExt;
 use async_std::task::spawn;
 use futures::future;
-use html_parse::{parse_tag, HTMLTag, HTMLTagKind, STANDARD_HTML_ELEMENTS};
+use html_parse::{parse_tag, DepthChange, HTMLTag, HTMLTagKind, STANDARD_HTML_ELEMENTS};
 use pulldown_cmark::{html, CowStr, Event, Parser};
 use std::env;
 use std::io::Write;

@@ -1,3 +1,5 @@
+use crate::depth::DepthChange;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum HTMLTagKind {
     Open,
@@ -5,8 +7,8 @@ pub enum HTMLTagKind {
     Void,
 }
 
-impl HTMLTagKind {
-    pub fn depth_change(&self) -> isize {
+impl DepthChange for HTMLTagKind {
+    fn depth_change(&self) -> isize {
         match self {
             HTMLTagKind::Open => 1,
             HTMLTagKind::Void => 0,
@@ -22,10 +24,25 @@ pub struct HTMLTag<'a> {
     pub attributes: Vec<(&'a str, Option<&'a str>)>,
 }
 
+impl<'a> DepthChange for HTMLTag<'a> {
+    fn depth_change(&self) -> isize {
+        self.kind.depth_change()
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum HTMLPart<'a> {
     Comment(&'a str),
     DocType,
     Tag(HTMLTag<'a>),
     Text(&'a str),
+}
+
+impl<'a> DepthChange for HTMLPart<'a> {
+    fn depth_change(&self) -> isize {
+        match self {
+            HTMLPart::Tag(tag) => tag.depth_change(),
+            _ => 0,
+        }
+    }
 }

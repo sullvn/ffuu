@@ -1,3 +1,4 @@
+use crate::depth::DepthChange;
 use crate::{HTMLPart, HTMLTag, HTMLTagKind};
 
 const INDENT: &str = "  ";

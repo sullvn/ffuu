@@ -33,13 +33,12 @@ impl<'a> From<&HTMLPart<'a>> for Option<HTMLEmbed<'a>> {
     }
 }
 
-/*
+#[allow(dead_code)]
 struct PendingHTMLEmbed<'a> {
     command: &'a str,
     depth: usize,
     input_parts: Vec<HTMLPart<'a>>,
 }
-*/
 
 #[allow(dead_code)]
 pub fn parse_embeds<'a>(html_parts: Vec<HTMLPart<'a>>) -> Vec<HTMLPartOrEmbed<'a>> {
@@ -98,13 +97,13 @@ mod tests {
             ]),
             vec![
                 HTMLPartOrEmbed::Part(HTMLPart::Tag(HTMLTag {
-                    name: "div",
+                    name: "p",
                     kind: HTMLTagKind::Open,
                     attributes: Vec::new(),
                 })),
                 HTMLPartOrEmbed::Part(HTMLPart::Text("Paragraph text.")),
                 HTMLPartOrEmbed::Part(HTMLPart::Tag(HTMLTag {
-                    name: "div",
+                    name: "p",
                     kind: HTMLTagKind::Close,
                     attributes: Vec::new(),
                 }))

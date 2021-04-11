@@ -17,9 +17,9 @@ impl<'a> From<&HTMLPart<'a>> for Option<HTMLEmbed<'a>> {
         match part {
             HTMLPart::Tag(HTMLTag {
                 name: "run",
-                kind: HTMLTagKind::Open,
+                kind,
                 attributes,
-            }) => attributes
+            }) if *kind == HTMLTagKind::Open || *kind == HTMLTagKind::Void => attributes
                 .iter()
                 .find(|(k, _)| *k == "command")
                 .map(|(_, v)| *v)
@@ -33,9 +33,9 @@ impl<'a> From<&HTMLPart<'a>> for Option<HTMLEmbed<'a>> {
     }
 }
 
-#[allow(dead_code)]
 struct PendingHTMLEmbed<'a> {
     command: &'a str,
+    #[allow(dead_code)]
     depth: usize,
     input_parts: Vec<HTMLPart<'a>>,
 }
@@ -43,11 +43,7 @@ struct PendingHTMLEmbed<'a> {
 #[allow(dead_code)]
 pub fn parse_embeds<'a>(html_parts: Vec<HTMLPart<'a>>) -> Vec<HTMLPartOrEmbed<'a>> {
     let mut html_parts_or_embeds = Vec::new();
-    // TODO, Change pending embed to:
-    // - Command str
-    // - Depth of embed
-    // - Inner HTML parts (to be formatted as stdin)
-    let mut maybe_pending_embed: Option<HTMLEmbed<'a>> = None;
+    let mut maybe_pending_embed: Option<PendingHTMLEmbed<'a>> = None;
 
     // TODO: Create iterator which attaches HTML depth
     for hp in html_parts.into_iter() {
@@ -61,11 +57,45 @@ pub fn parse_embeds<'a>(html_parts: Vec<HTMLPart<'a>>) -> Vec<HTMLPartOrEmbed<'a
             _ => false,
         };
 
-        match (&maybe_pending_embed, maybe_new_embed, is_embed_end) {
-            (None, Some(new_embed), false) => maybe_pending_embed = Some(new_embed),
-            (Some(_pending_embed), _, false) => todo!("Merge part into pending embed input"),
-            (Some(finished_embed), None, true) => {
-                html_parts_or_embeds.push(HTMLPartOrEmbed::Embed(finished_embed.clone()));
+        match (&mut maybe_pending_embed, maybe_new_embed, &hp, is_embed_end) {
+            (
+                None,
+                Some(new_embed),
+                &HTMLPart::Tag(HTMLTag {
+                    kind: HTMLTagKind::Void,
+                    ..
+                }),
+                false,
+            ) => html_parts_or_embeds.push(HTMLPartOrEmbed::Embed(HTMLEmbed {
+                command: new_embed.command,
+                input: None,
+            })),
+            (
+                None,
+                Some(new_embed),
+                &HTMLPart::Tag(HTMLTag {
+                    kind: HTMLTagKind::Open,
+                    ..
+                }),
+                false,
+            ) => {
+                maybe_pending_embed = Some(PendingHTMLEmbed {
+                    command: new_embed.command,
+                    depth: 0,
+                    input_parts: Vec::new(),
+                })
+            }
+            (Some(pending_embed), _, _, false) => pending_embed.input_parts.push(hp),
+            (Some(finished_embed), None, _, true) => {
+                html_parts_or_embeds.push(HTMLPartOrEmbed::Embed(HTMLEmbed {
+                    command: finished_embed.command,
+                    //
+                    // TODO - After string ownership is solved
+                    //
+                    // (Can't merge as owned String into borrowed &'a str)
+                    //
+                    input: None,
+                }));
                 maybe_pending_embed = None;
             }
             _ => html_parts_or_embeds.push(HTMLPartOrEmbed::Part(hp)),

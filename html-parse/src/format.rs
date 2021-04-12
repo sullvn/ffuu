@@ -1,5 +1,6 @@
 use crate::depth::DepthChange;
 use crate::{HTMLPart, HTMLTag, HTMLTagKind};
+use std::borrow::Cow;
 
 const INDENT: &str = "  ";
 
@@ -64,7 +65,10 @@ fn format_html_part(part: &HTMLPart) -> String {
         HTMLPart::Comment(comment) => format!("<!--{}-->", comment),
         HTMLPart::DocType => "<!DOCTYPE html>".into(),
         HTMLPart::Tag(tag) => format_html_tag(tag),
-        HTMLPart::Text(text) => (*text).into(),
+        HTMLPart::Text(text) => match text {
+            Cow::Borrowed(str) => (*str).to_owned(),
+            Cow::Owned(string) => string.clone(),
+        },
     }
 }
 
@@ -122,7 +126,9 @@ mod tests {
     #[test]
     fn format_text() {
         assert_eq!(
-            format_html(&vec![HTMLPart::Text("This is a paragraph, \nwhat of it.")]),
+            format_html(&vec![HTMLPart::Text(
+                "This is a paragraph, \nwhat of it.".into()
+            )]),
             "This is a paragraph, \nwhat of it."
         );
     }
@@ -231,7 +237,7 @@ mod tests {
                     name: "title",
                     attributes: vec![],
                 }),
-                HTMLPart::Text("Title"),
+                HTMLPart::Text("Title".into()),
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Close,
                     name: "title",
@@ -257,7 +263,7 @@ mod tests {
                     name: "h1",
                     attributes: vec![],
                 }),
-                HTMLPart::Text("Header"),
+                HTMLPart::Text("Header".into()),
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Close,
                     name: "h1",
@@ -268,25 +274,25 @@ mod tests {
                     name: "p",
                     attributes: vec![],
                 }),
-                HTMLPart::Text("Two lines"),
+                HTMLPart::Text("Two lines".into()),
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Void,
                     name: "br",
                     attributes: vec![],
                 }),
-                HTMLPart::Text("of "),
+                HTMLPart::Text("of ".into()),
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Open,
                     name: "em",
                     attributes: vec![],
                 }),
-                HTMLPart::Text("text"),
+                HTMLPart::Text("text".into()),
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Close,
                     name: "em",
                     attributes: vec![],
                 }),
-                HTMLPart::Text("."),
+                HTMLPart::Text(".".into()),
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Close,
                     name: "p",

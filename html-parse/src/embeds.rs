@@ -4,8 +4,8 @@ use std::borrow::Cow;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HTMLEmbed<'a> {
-    command: &'a str,
-    input: Option<Cow<'a, str>>,
+    pub command: &'a str,
+    pub input: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -119,7 +119,7 @@ mod tests {
                     kind: HTMLTagKind::Open,
                     attributes: Vec::new(),
                 }),
-                HTMLPart::Text("Paragraph text."),
+                HTMLPart::Text("Paragraph text.".into()),
                 HTMLPart::Tag(HTMLTag {
                     name: "p",
                     kind: HTMLTagKind::Close,
@@ -132,7 +132,7 @@ mod tests {
                     kind: HTMLTagKind::Open,
                     attributes: Vec::new(),
                 })),
-                HTMLPartOrEmbed::Part(HTMLPart::Text("Paragraph text.")),
+                HTMLPartOrEmbed::Part(HTMLPart::Text("Paragraph text.".into())),
                 HTMLPartOrEmbed::Part(HTMLPart::Tag(HTMLTag {
                     name: "p",
                     kind: HTMLTagKind::Close,
@@ -166,7 +166,7 @@ mod tests {
                     kind: HTMLTagKind::Open,
                     attributes: vec![("command", Some("jq ."))],
                 }),
-                HTMLPart::Text("{\"number\": 42}"),
+                HTMLPart::Text("{\"number\": 42}".into()),
                 HTMLPart::Tag(HTMLTag {
                     name: "run",
                     kind: HTMLTagKind::Close,
@@ -200,7 +200,7 @@ mod tests {
                     kind: HTMLTagKind::Open,
                     attributes: vec![("command", Some("jq ."))],
                 }),
-                HTMLPart::Text("{\"number\": 42}"),
+                HTMLPart::Text("{\"number\": 42}".into()),
                 HTMLPart::Tag(HTMLTag {
                     name: "run",
                     kind: HTMLTagKind::Close,

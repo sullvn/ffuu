@@ -1,4 +1,5 @@
 use crate::depth::DepthChange;
+use std::borrow::Cow;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum HTMLTagKind {
@@ -35,7 +36,7 @@ pub enum HTMLPart<'a> {
     Comment(&'a str),
     DocType,
     Tag(HTMLTag<'a>),
-    Text(&'a str),
+    Text(Cow<'a, str>),
 }
 
 impl<'a> DepthChange for HTMLPart<'a> {

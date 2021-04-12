@@ -7,6 +7,7 @@ mod standard_elements;
 mod types;
 
 pub use depth::DepthChange;
+pub use embeds::{parse_embeds, HTMLEmbed, HTMLPartOrEmbed};
 pub use format::format_html;
 pub use parse::{parse_all_parts, parse_html, parse_tag};
 pub use standard_attributes::URI_HTML_ATTRIBUTES;

@@ -44,7 +44,7 @@ fn parse_tag_part(input: &str) -> IResult<&str, HTMLPart> {
 fn parse_text_part(input: &str) -> IResult<&str, HTMLPart> {
     let (input, text) = is_not("<")(input)?;
 
-    Ok((input, HTMLPart::Text(text)))
+    Ok((input, HTMLPart::Text(text.into())))
 }
 
 #[cfg(test)]
@@ -56,7 +56,7 @@ mod tests {
     fn only_text() {
         assert_eq!(
             parse_html("No tags, just text."),
-            Ok(vec![HTMLPart::Text("No tags, just text.")]),
+            Ok(vec![HTMLPart::Text("No tags, just text.".into())]),
         );
     }
 
@@ -65,19 +65,19 @@ mod tests {
         assert_eq!(
             parse_html("Outside <p class=\"test\" toggle>Some content.</p> text"),
             Ok(vec![
-                HTMLPart::Text("Outside "),
+                HTMLPart::Text("Outside ".into()),
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Open,
                     name: "p",
                     attributes: vec![("class", Some("test")), ("toggle", None)],
                 }),
-                HTMLPart::Text("Some content."),
+                HTMLPart::Text("Some content.".into()),
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Close,
                     name: "p",
                     attributes: vec![],
                 }),
-                HTMLPart::Text(" text")
+                HTMLPart::Text(" text".into())
             ]),
         );
     }
@@ -97,7 +97,7 @@ mod tests {
                     name: "label",
                     attributes: vec![],
                 }),
-                HTMLPart::Text("Radio"),
+                HTMLPart::Text("Radio".into()),
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Close,
                     name: "label",

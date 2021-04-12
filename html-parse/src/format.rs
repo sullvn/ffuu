@@ -3,7 +3,10 @@ use crate::{HTMLPart, HTMLTag, HTMLTagKind};
 
 const INDENT: &str = "  ";
 
-pub fn format_html<'a, T: IntoIterator<Item = HTMLPart<'a>>>(html_parts: T) -> String {
+pub fn format_html<'a, T>(html_parts: T) -> String
+where
+    T: IntoIterator<Item = &'a HTMLPart<'a>>,
+{
     let mut output = String::new();
     let mut depth: isize = 0;
     let mut inside_text: Option<isize> = None;
@@ -105,13 +108,13 @@ mod tests {
 
     #[test]
     fn format_doctype() {
-        assert_eq!(format_html(vec![HTMLPart::DocType]), "<!DOCTYPE html>");
+        assert_eq!(format_html(&vec![HTMLPart::DocType]), "<!DOCTYPE html>");
     }
 
     #[test]
     fn format_comment() {
         assert_eq!(
-            format_html(vec![HTMLPart::Comment("BORKEN")]),
+            format_html(&vec![HTMLPart::Comment("BORKEN")]),
             "<!--BORKEN-->"
         );
     }
@@ -119,7 +122,7 @@ mod tests {
     #[test]
     fn format_text() {
         assert_eq!(
-            format_html(vec![HTMLPart::Text("This is a paragraph, \nwhat of it.")]),
+            format_html(&vec![HTMLPart::Text("This is a paragraph, \nwhat of it.")]),
             "This is a paragraph, \nwhat of it."
         );
     }
@@ -127,7 +130,7 @@ mod tests {
     #[test]
     fn format_open_tag() {
         assert_eq!(
-            format_html(vec![HTMLPart::Tag(HTMLTag {
+            format_html(&vec![HTMLPart::Tag(HTMLTag {
                 kind: HTMLTagKind::Open,
                 name: "span",
                 attributes: vec![],
@@ -139,7 +142,7 @@ mod tests {
     #[test]
     fn format_open_attributes_tag() {
         assert_eq!(
-            format_html(vec![HTMLPart::Tag(HTMLTag {
+            format_html(&vec![HTMLPart::Tag(HTMLTag {
                 kind: HTMLTagKind::Open,
                 name: "span",
                 attributes: vec![("class", Some("alert"))],
@@ -151,7 +154,7 @@ mod tests {
     #[test]
     fn format_open_boolean_attributes_tag() {
         assert_eq!(
-            format_html(vec![HTMLPart::Tag(HTMLTag {
+            format_html(&vec![HTMLPart::Tag(HTMLTag {
                 kind: HTMLTagKind::Open,
                 name: "button",
                 attributes: vec![("disabled", None)],
@@ -163,7 +166,7 @@ mod tests {
     #[test]
     fn format_void_tag() {
         assert_eq!(
-            format_html(vec![HTMLPart::Tag(HTMLTag {
+            format_html(&vec![HTMLPart::Tag(HTMLTag {
                 kind: HTMLTagKind::Void,
                 name: "meta",
                 attributes: vec![],
@@ -175,7 +178,7 @@ mod tests {
     #[test]
     fn format_void_attributes_tag() {
         assert_eq!(
-            format_html(vec![HTMLPart::Tag(HTMLTag {
+            format_html(&vec![HTMLPart::Tag(HTMLTag {
                 kind: HTMLTagKind::Void,
                 name: "meta",
                 attributes: vec![("charset", Some("utf-8"))],
@@ -187,7 +190,7 @@ mod tests {
     #[test]
     fn format_void_boolean_attributes_tag() {
         assert_eq!(
-            format_html(vec![HTMLPart::Tag(HTMLTag {
+            format_html(&vec![HTMLPart::Tag(HTMLTag {
                 kind: HTMLTagKind::Void,
                 name: "button",
                 attributes: vec![("disabled", None)],
@@ -199,7 +202,7 @@ mod tests {
     #[test]
     fn format_close_tag() {
         assert_eq!(
-            format_html(vec![HTMLPart::Tag(HTMLTag {
+            format_html(&vec![HTMLPart::Tag(HTMLTag {
                 kind: HTMLTagKind::Close,
                 name: "div",
                 attributes: vec![],
@@ -211,7 +214,7 @@ mod tests {
     #[test]
     fn format_html_doc() {
         assert_eq!(
-            format_html(vec![
+            format_html(&vec![
                 HTMLPart::DocType,
                 HTMLPart::Tag(HTMLTag {
                     kind: HTMLTagKind::Open,

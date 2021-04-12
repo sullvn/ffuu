@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
     //
     // Render
     //
-    let output = format_html(result);
+    let output = format_html(&result);
 
     //
     // Write

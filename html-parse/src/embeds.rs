@@ -1,9 +1,10 @@
-use crate::{HTMLPart, HTMLTag, HTMLTagKind};
+use crate::{format_html, HTMLPart, HTMLTag, HTMLTagKind};
+use std::borrow::Cow;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HTMLEmbed<'a> {
     command: &'a str,
-    input: Option<&'a str>,
+    input: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -87,14 +88,10 @@ pub fn parse_embeds<'a>(html_parts: Vec<HTMLPart<'a>>) -> Vec<HTMLPartOrEmbed<'a
             }
             (Some(pending_embed), _, _, false) => pending_embed.input_parts.push(hp),
             (Some(finished_embed), None, _, true) => {
+                let input_formatted = format_html(&finished_embed.input_parts);
                 html_parts_or_embeds.push(HTMLPartOrEmbed::Embed(HTMLEmbed {
                     command: finished_embed.command,
-                    //
-                    // TODO - After string ownership is solved
-                    //
-                    // (Can't merge as owned String into borrowed &'a str)
-                    //
-                    input: None,
+                    input: Some(input_formatted.into()),
                 }));
                 maybe_pending_embed = None;
             }
@@ -174,7 +171,7 @@ mod tests {
             ]),
             vec![HTMLPartOrEmbed::Embed(HTMLEmbed {
                 command: "jq .",
-                input: Some("{\"number\": 42}")
+                input: Some("{\"number\": 42}".into()),
             }),]
         )
     }
@@ -219,6 +216,7 @@ mod tests {
                       {\"number\": 42}
                     </run>
                     "
+                    .into()
                 ),
             }),]
         )

@@ -1,3 +1,4 @@
+use crate::depth::WithDepthIterator;
 use crate::{format_html, HTMLPart, HTMLTag, HTMLTagKind};
 use std::borrow::Cow;
 
@@ -36,8 +37,7 @@ impl<'a> From<&HTMLPart<'a>> for Option<HTMLEmbed<'a>> {
 
 struct PendingHTMLEmbed<'a> {
     command: &'a str,
-    #[allow(dead_code)]
-    depth: usize,
+    depth: isize,
     input_parts: Vec<HTMLPart<'a>>,
 }
 
@@ -46,15 +46,19 @@ pub fn parse_embeds<'a>(html_parts: Vec<HTMLPart<'a>>) -> Vec<HTMLPartOrEmbed<'a
     let mut html_parts_or_embeds = Vec::new();
     let mut maybe_pending_embed: Option<PendingHTMLEmbed<'a>> = None;
 
-    // TODO: Create iterator which attaches HTML depth
-    for hp in html_parts.into_iter() {
+    for (hp, depth) in html_parts.into_iter().with_depth() {
         let maybe_new_embed: Option<HTMLEmbed<'a>> = (&hp).into();
-        let is_embed_end: bool = match &hp {
-            HTMLPart::Tag(HTMLTag {
-                name: "run",
-                kind: HTMLTagKind::Close,
-                ..
-            }) => true,
+        let is_embed_end: bool = match (&maybe_pending_embed, &hp) {
+            (
+                Some(PendingHTMLEmbed {
+                    depth: pe_depth, ..
+                }),
+                HTMLPart::Tag(HTMLTag {
+                    name: "run",
+                    kind: HTMLTagKind::Close,
+                    ..
+                }),
+            ) if depth <= *pe_depth => true,
             _ => false,
         };
 
@@ -210,14 +214,7 @@ mod tests {
             ]),
             vec![HTMLPartOrEmbed::Embed(HTMLEmbed {
                 command: "wc -l",
-                input: Some(
-                    "\
-                    <run command=\"jq .\">
-                      {\"number\": 42}
-                    </run>
-                    "
-                    .into()
-                ),
+                input: Some("<run command=\"jq .\">{\"number\": 42}</run>".into()),
             }),]
         )
     }

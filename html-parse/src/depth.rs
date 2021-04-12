@@ -18,8 +18,26 @@ impl<T: DepthChange, I: Iterator<Item = T>> Iterator for DepthIterator<T, I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|x| {
-            self.depth += x.depth_change();
-            (x, self.depth)
+            let dc = x.depth_change();
+            let (depth_old, depth_new) = (self.depth, self.depth + dc);
+            let depth_reported = if 0 < dc { depth_old } else { depth_new };
+
+            self.depth = depth_new;
+            (x, depth_reported)
         })
+    }
+}
+
+pub trait WithDepthIterator<T: DepthChange>: Iterator<Item = T> + Sized {
+    fn with_depth(self) -> DepthIterator<T, Self>;
+}
+
+impl<T, I> WithDepthIterator<T> for I
+where
+    T: DepthChange,
+    I: Iterator<Item = T>,
+{
+    fn with_depth(self) -> DepthIterator<T, Self> {
+        self.into()
     }
 }

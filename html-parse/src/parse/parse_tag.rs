@@ -2,10 +2,9 @@ use nom::{
     branch::alt,
     character::complete::{alphanumeric1, char, multispace0, space1},
     combinator::opt,
-    error::ErrorKind,
     multi::many0,
     sequence::tuple,
-    Err, IResult,
+    IResult,
 };
 
 use super::parse_attribute::spaced_attribute;
@@ -27,13 +26,13 @@ fn attributes_tag(input: &str) -> IResult<&str, HTMLTag> {
     ))(input)?;
     let (_, name, attributes, void_delimiter, _) = matches;
 
-    let is_void_name = VOID_HTML_ELEMENTS.contains(name);
+    let has_void_name = VOID_HTML_ELEMENTS.contains(name);
     let has_void_delimiter = void_delimiter.is_some();
-    let kind = match (is_void_name, has_void_delimiter) {
-        (true, _) => Ok(HTMLTagKind::Void),
-        (false, false) => Ok(HTMLTagKind::Open),
-        (false, true) => Err(Err::Error((input_rest, ErrorKind::Tag))),
-    }?;
+    let is_void = has_void_name || has_void_delimiter;
+    let kind = match is_void {
+        true => HTMLTagKind::Void,
+        false => HTMLTagKind::Open,
+    };
 
     Ok((
         input_rest,
@@ -150,14 +149,6 @@ mod tests {
                     attributes: Vec::new()
                 }
             ))
-        );
-    }
-
-    #[test]
-    fn void_wrong_xhtml() {
-        assert_eq!(
-            parse_tag("<div />"),
-            Err(Err::Error(("div />", ErrorKind::Char)))
         );
     }
 

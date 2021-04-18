@@ -4,6 +4,7 @@ use async_std::io::{stdin, stdout};
 use html_parse::{format_html, parse_embeds, parse_html, HTMLEmbed, HTMLPart, HTMLPartOrEmbed};
 use std::io::Write;
 use std::process::{Command, Stdio};
+use std::str;
 
 #[async_std::main]
 async fn main() -> anyhow::Result<()> {
@@ -76,7 +77,9 @@ fn exec_embed(request: &HTMLEmbed) -> anyhow::Result<String> {
             .write_all(input_text.as_bytes())?;
     }
     let output = child.wait_with_output()?;
-    let text = String::from_utf8(output.stdout)?;
+    let text = str::from_utf8(&output.stdout)?;
+    let trimmed = text.trim();
+    let string = trimmed.to_owned();
 
-    Ok(text)
+    Ok(string)
 }

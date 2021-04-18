@@ -35,6 +35,7 @@ impl<'a> From<&HTMLPart<'a>> for Option<HTMLEmbed<'a>> {
     }
 }
 
+#[derive(Debug)]
 struct PendingHTMLEmbed<'a> {
     command: &'a str,
     depth: isize,
@@ -86,7 +87,7 @@ pub fn parse_embeds<'a>(html_parts: Vec<HTMLPart<'a>>) -> Vec<HTMLPartOrEmbed<'a
             ) => {
                 maybe_pending_embed = Some(PendingHTMLEmbed {
                     command: new_embed.command,
-                    depth: 0,
+                    depth,
                     input_parts: Vec::new(),
                 })
             }
@@ -177,6 +178,90 @@ mod tests {
                 command: "jq .",
                 input: Some("{\"number\": 42}".into()),
             }),]
+        )
+    }
+
+    #[test]
+    fn parse_inner_embed_without_input() {
+        assert_eq!(
+            parse_embeds(vec![
+                HTMLPart::Tag(HTMLTag {
+                    name: "div",
+                    kind: HTMLTagKind::Open,
+                    attributes: Vec::new(),
+                }),
+                HTMLPart::Tag(HTMLTag {
+                    name: "run",
+                    kind: HTMLTagKind::Void,
+                    attributes: vec![("command", Some("date"))],
+                }),
+                HTMLPart::Tag(HTMLTag {
+                    name: "div",
+                    kind: HTMLTagKind::Close,
+                    attributes: Vec::new(),
+                }),
+            ]),
+            vec![
+                HTMLPartOrEmbed::Part(HTMLPart::Tag(HTMLTag {
+                    name: "div",
+                    kind: HTMLTagKind::Open,
+                    attributes: Vec::new(),
+                })),
+                HTMLPartOrEmbed::Embed(HTMLEmbed {
+                    command: "date",
+                    input: None,
+                }),
+                HTMLPartOrEmbed::Part(HTMLPart::Tag(HTMLTag {
+                    name: "div",
+                    kind: HTMLTagKind::Close,
+                    attributes: Vec::new(),
+                })),
+            ]
+        )
+    }
+
+    #[test]
+    fn parse_inner_embed_with_input() {
+        assert_eq!(
+            parse_embeds(vec![
+                HTMLPart::Tag(HTMLTag {
+                    name: "div",
+                    kind: HTMLTagKind::Open,
+                    attributes: Vec::new(),
+                }),
+                HTMLPart::Tag(HTMLTag {
+                    name: "run",
+                    kind: HTMLTagKind::Open,
+                    attributes: vec![("command", Some("jq ."))],
+                }),
+                HTMLPart::Text("{\"number\": 42}".into()),
+                HTMLPart::Tag(HTMLTag {
+                    name: "run",
+                    kind: HTMLTagKind::Close,
+                    attributes: Vec::new(),
+                }),
+                HTMLPart::Tag(HTMLTag {
+                    name: "div",
+                    kind: HTMLTagKind::Close,
+                    attributes: Vec::new(),
+                }),
+            ]),
+            vec![
+                HTMLPartOrEmbed::Part(HTMLPart::Tag(HTMLTag {
+                    name: "div",
+                    kind: HTMLTagKind::Open,
+                    attributes: Vec::new(),
+                })),
+                HTMLPartOrEmbed::Embed(HTMLEmbed {
+                    command: "jq .",
+                    input: Some("{\"number\": 42}".into()),
+                }),
+                HTMLPartOrEmbed::Part(HTMLPart::Tag(HTMLTag {
+                    name: "div",
+                    kind: HTMLTagKind::Close,
+                    attributes: Vec::new(),
+                })),
+            ]
         )
     }
 

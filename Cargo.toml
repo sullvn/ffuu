@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+  "ffuu-add",
   "ffuu-cli",
   "ffuu-html",
   "ffuu-markdown",

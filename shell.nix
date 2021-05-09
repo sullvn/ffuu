@@ -7,5 +7,6 @@ in
     buildInputs = [
       nixpkgs.latest.rustChannels.stable.rust
       nixpkgs.nodejs_latest
+      nixpkgs.libiconv
     ];
   }
